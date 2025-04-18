@@ -1,0 +1,451 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String
+  imgUrl    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+}
+
+model Student {
+  id              String   @id @default(uuid())
+  fullName        String
+  userName        String   @unique
+  phone           String?  @unique
+  bio             String?
+  dob             String?
+  gender          String?
+  email           String   @unique
+  password        String
+  studentImage    String?
+  age             Int?
+  trustPhoneNo    String?
+  otp             String?
+  isOtpVerify     Boolean  @default(false)
+  isMailOtpVerify Boolean  @default(false)
+  quizScore       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  stories          Story[]
+  comments         Comment[]
+  likes            Like[]
+  Conversation     Conversation[]
+  Review           Review[]
+  quizAttempts     QuizAttempt[]
+  viewBlog         ViewBlog[]
+  reportsSubmitted Report[]       @relation("StudentReporter")
+  favorites        favorites[]
+  hidenStories     hidenStories[]
+
+  @@index([email])
+}
+
+model Parent {
+  id              String   @id @default(uuid())
+  fullName        String
+  phone           String?  @unique
+  gender          String?
+  email           String   @unique
+  password        String
+  parentImage     String?
+  dob             String?  @default("")
+  otp             String?
+  isOtpVerify     Boolean  @default(false)
+  isMailOtpVerify Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  comments         Comment[]
+  likes            Like[]
+  DonationRecord   DonationRecord[]
+  viewBlog         ViewBlog[]
+  reportsSubmitted Report[]
+  favorites        favorites[]
+  hidenStories     hidenStories[]
+
+  @@index([email])
+}
+
+model Therapist {
+  id                         String           @id @default(uuid())
+  userName                   String
+  phone                      String?          @unique
+  email                      String           @unique
+  password                   String
+  gender                     String?
+  dob                        String?          @default("")
+  otp                        String?
+  isTherapistVerifiedByAdmin Boolean          @default(false)
+  isTherapistApprove         Boolean          @default(false)
+  isTherapistReject          Boolean          @default(false)
+  isOtpVerify                Boolean          @default(false)
+  isMailOtpVerify            Boolean          @default(false)
+  recoveryEmail              String?
+  licenseNO                  String?
+  therapistImage             String?
+  languageType               String[]
+  qualifications             String?
+  specialization             String?
+  experience                 Float?
+  bio                        String?
+  verified                   Boolean          @default(false)
+  ratings                    Float?           @default(0)
+  createdAt                  DateTime         @default(now())
+  Conversation               Conversation[]
+  Review                     Review[]
+  comments                   Comment[]
+  likes                      Like[]
+  DonationRecord             DonationRecord[]
+  viewBlog                   ViewBlog[]
+  reportsSubmitted           Report[]
+  favorites                  favorites[]
+  hidenStories               hidenStories[]
+}
+
+model Donation {
+  id               String           @id @default(uuid())
+  title            String
+  organizedBy      String
+  timePeriod       DateTime
+  isDonationActive Boolean          @default(false)
+  desc             String
+  imgUrl           String?
+  receivedAmount   Float?           @default(0)
+  totalAmount      Float
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  donors           DonationRecord[]
+}
+
+model DonationRecord {
+  id                String   @id @default(uuid())
+  amount            Float
+  razorpayOrderId   String?  @unique
+  razorpayPaymentId String?  @unique
+  createdAt         DateTime @default(now())
+
+  // Relation to donation
+  donationId String
+  donation   Donation @relation(fields: [donationId], references: [id])
+
+  parentId String?
+  parent   Parent? @relation(fields: [parentId], references: [id])
+
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id])
+
+  @@index([donationId])
+  @@index([therapistId])
+}
+
+model Story {
+  id            String         @id @default(uuid())
+  title         String? // You might want to add this
+  content       String
+  image         String         @default("")
+  audio         String         @default("")
+  audioDuration Float?
+  createdAt     DateTime       @default(now())
+  studentId     String
+  isComplete    Boolean        @default(true)
+  student       Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  chunks        StoryChunk?
+  comments      Comment[]
+  likes         Like[]
+  reports       Report[]
+  favorites     favorites[]
+  hidenStories  hidenStories[]
+
+  @@index([studentId])
+}
+
+model StoryChunk {
+  storyId        String   @id
+  story          Story    @relation(fields: [storyId], references: [id])
+  content        String   @db.Text
+  chunkIndex     Int
+  receivedChunks Int
+  totalChunks    Int
+  isComplete     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  reason    String
+  isNew     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Story being reported
+  storyId String
+  story   Story  @relation(fields: [storyId], references: [id])
+
+  // Reporter information (can be Student, Parent, or Therapist)
+  studentReporterId String?
+  studentReporter   Student? @relation("StudentReporter", fields: [studentReporterId], references: [id])
+
+  parentReporterId String?
+  parentReporter   Parent? @relation(fields: [parentReporterId], references: [id])
+
+  therapistReporterId String?
+  therapistReporter   Therapist? @relation(fields: [therapistReporterId], references: [id])
+
+  @@index([storyId])
+  @@index([studentReporterId])
+  @@index([parentReporterId])
+  @@index([therapistReporterId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  // Make these optional and mutually exclusive
+  studentId   String?
+  student     Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Parent?    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  storyId String
+  story   Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([studentId])
+  @@index([parentId])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // Make these optional and mutually exclusive
+  studentId   String?
+  student     Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Parent?    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  storyId     String
+  story       Story      @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  // Prevent multiple likes from same user on same story
+  @@unique([studentId, storyId])
+  @@unique([parentId, storyId])
+  @@index([storyId])
+  @@index([studentId])
+  @@index([parentId])
+}
+
+model favorites {
+  id          String     @id @default(uuid())
+  createdAt   DateTime   @default(now())
+  // Make these optional and mutually exclusive
+  studentId   String?
+  student     Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Parent?    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  storyId     String
+  story       Story      @relation(fields: [storyId], references: [id], onDelete: Cascade)
+}
+
+model hidenStories {
+  id          String     @id @default(uuid())
+  createdAt   DateTime   @default(now())
+  // Make these optional and mutually exclusive
+  studentId   String?
+  student     Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Parent?    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  storyId     String
+  story       Story      @relation(fields: [storyId], references: [id], onDelete: Cascade)
+}
+
+model Blog {
+  id           String   @id @default(uuid())
+  title        String
+  content      String
+  summary      String
+  blogCategory String
+  tags         String[] @default([])
+  viewCount    Int      @default(0) // Just add this field
+  image        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  viewBlog ViewBlog[]
+}
+
+model ViewBlog {
+  id          String     @id @default(uuid())
+  blogId      String
+  blog        Blog       @relation(fields: [blogId], references: [id])
+  studentId   String?
+  student     Student?   @relation(fields: [studentId], references: [id])
+  parentId    String?
+  parent      Parent?    @relation(fields: [parentId], references: [id])
+  therapistId String?
+  therapist   Therapist? @relation(fields: [therapistId], references: [id])
+  createdAt   DateTime   @default(now())
+}
+
+enum ConversationStatus {
+  Accepted
+  Pending
+  Dismiss
+}
+
+model Conversation {
+  id            String              @id @default(uuid())
+  createdAt     DateTime            @default(now())
+  lastMessageAt DateTime            @default(now()) // Helps with sorting conversations
+  lastMessage   String? // Last message content
+  status        ConversationStatus?
+
+  // Participants (Student and Therapist)
+  studentId   String
+  therapistId String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapist   Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  // Relation to messages
+  messages Message[]
+
+  @@unique([studentId, therapistId]) // Ensures unique conversation between participants
+  @@index([studentId])
+  @@index([therapistId])
+  @@index([lastMessageAt]) // Helps with sorting conversations
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String // The message text
+  createdAt DateTime @default(now())
+
+  // Message status
+  seen   Boolean   @default(false)
+  seenAt DateTime? // Timestamp when message was seen
+
+  // Sender information (can be either Student or Therapist)
+  senderId   String // ID of the sender
+  senderType SenderType // Enum to distinguish between Student and Therapist
+
+  // Conversation relation
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([seen])
+}
+
+enum SenderType {
+  STUDENT
+  THERAPIST
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  title     String
+  review    String
+  rating    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  // Make these optional and mutually exclusive
+  studentId   String?
+  Student     Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  therapistId String?
+  Therapist   Therapist? @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([therapistId])
+}
+
+model Quiz {
+  id             String   @id @default(uuid())
+  title          String
+  description    String
+  imageUrl       String?
+  totalQuestions Int?     @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+}
+
+model QuizQuestion {
+  id        String   @id @default(uuid())
+  question  String
+  option1   String
+  option2   String
+  option3   String
+  option4   String
+  answer    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  quizId   String
+  quiz     Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  attempts QuizAttempt[]
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  studentId   String
+  quizId      String
+  answer      String
+  isCorrect   Boolean
+  attemptedAt DateTime @default(now())
+
+  // Relations
+  student    Student       @relation(fields: [studentId], references: [id])
+  quiz       Quiz          @relation(fields: [quizId], references: [id])
+  questionId String?
+  question   QuizQuestion? @relation(fields: [questionId], references: [id])
+
+  @@index([studentId])
+  @@index([quizId])
+  @@index([questionId])
+}
+
+model EducationalVideo {
+  id           String   @id @default(uuid())
+  title        String
+  description  String
+  thumbnailUrl String
+  videoUrl     String
+  IsForStudent Boolean
+  createdAt    DateTime @default(now())
+}
