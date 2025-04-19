@@ -69,6 +69,8 @@ CREATE TABLE "Therapist" (
     "dob" TEXT DEFAULT '',
     "otp" TEXT,
     "isTherapistVerifiedByAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "isTherapistApprove" BOOLEAN NOT NULL DEFAULT false,
+    "isTherapistReject" BOOLEAN NOT NULL DEFAULT false,
     "isOtpVerify" BOOLEAN NOT NULL DEFAULT false,
     "isMailOtpVerify" BOOLEAN NOT NULL DEFAULT false,
     "recoveryEmail" TEXT,
@@ -84,37 +86,6 @@ CREATE TABLE "Therapist" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Therapist_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Donation" (
-    "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "organizedBy" TEXT NOT NULL,
-    "timePeriod" TIMESTAMP(3) NOT NULL,
-    "isDonationActive" BOOLEAN NOT NULL DEFAULT false,
-    "desc" TEXT NOT NULL,
-    "imgUrl" TEXT,
-    "receivedAmount" DOUBLE PRECISION DEFAULT 0,
-    "totalAmount" DOUBLE PRECISION NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Donation_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "DonationRecord" (
-    "id" TEXT NOT NULL,
-    "amount" DOUBLE PRECISION NOT NULL,
-    "razorpayOrderId" TEXT,
-    "razorpayPaymentId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "donationId" TEXT NOT NULL,
-    "parentId" TEXT,
-    "therapistId" TEXT,
-
-    CONSTRAINT "DonationRecord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -184,6 +155,30 @@ CREATE TABLE "Like" (
     "storyId" TEXT NOT NULL,
 
     CONSTRAINT "Like_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "favorites" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "studentId" TEXT,
+    "therapistId" TEXT,
+    "parentId" TEXT,
+    "storyId" TEXT NOT NULL,
+
+    CONSTRAINT "favorites_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "hidenStories" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "studentId" TEXT,
+    "therapistId" TEXT,
+    "parentId" TEXT,
+    "storyId" TEXT NOT NULL,
+
+    CONSTRAINT "hidenStories_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -299,6 +294,19 @@ CREATE TABLE "QuizAttempt" (
     CONSTRAINT "QuizAttempt_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "EducationalVideo" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "thumbnailUrl" TEXT NOT NULL,
+    "videoUrl" TEXT NOT NULL,
+    "IsForStudent" BOOLEAN NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EducationalVideo_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Admin_email_key" ON "Admin"("email");
 
@@ -328,18 +336,6 @@ CREATE UNIQUE INDEX "Therapist_phone_key" ON "Therapist"("phone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Therapist_email_key" ON "Therapist"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "DonationRecord_razorpayOrderId_key" ON "DonationRecord"("razorpayOrderId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "DonationRecord_razorpayPaymentId_key" ON "DonationRecord"("razorpayPaymentId");
-
--- CreateIndex
-CREATE INDEX "DonationRecord_donationId_idx" ON "DonationRecord"("donationId");
-
--- CreateIndex
-CREATE INDEX "DonationRecord_therapistId_idx" ON "DonationRecord"("therapistId");
 
 -- CreateIndex
 CREATE INDEX "Story_studentId_idx" ON "Story"("studentId");
@@ -417,15 +413,6 @@ CREATE INDEX "QuizAttempt_quizId_idx" ON "QuizAttempt"("quizId");
 CREATE INDEX "QuizAttempt_questionId_idx" ON "QuizAttempt"("questionId");
 
 -- AddForeignKey
-ALTER TABLE "DonationRecord" ADD CONSTRAINT "DonationRecord_donationId_fkey" FOREIGN KEY ("donationId") REFERENCES "Donation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "DonationRecord" ADD CONSTRAINT "DonationRecord_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Parent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "DonationRecord" ADD CONSTRAINT "DonationRecord_therapistId_fkey" FOREIGN KEY ("therapistId") REFERENCES "Therapist"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Story" ADD CONSTRAINT "Story_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -466,6 +453,30 @@ ALTER TABLE "Like" ADD CONSTRAINT "Like_parentId_fkey" FOREIGN KEY ("parentId") 
 
 -- AddForeignKey
 ALTER TABLE "Like" ADD CONSTRAINT "Like_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "Story"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorites" ADD CONSTRAINT "favorites_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorites" ADD CONSTRAINT "favorites_therapistId_fkey" FOREIGN KEY ("therapistId") REFERENCES "Therapist"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorites" ADD CONSTRAINT "favorites_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Parent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "favorites" ADD CONSTRAINT "favorites_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "Story"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "hidenStories" ADD CONSTRAINT "hidenStories_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "hidenStories" ADD CONSTRAINT "hidenStories_therapistId_fkey" FOREIGN KEY ("therapistId") REFERENCES "Therapist"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "hidenStories" ADD CONSTRAINT "hidenStories_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Parent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "hidenStories" ADD CONSTRAINT "hidenStories_storyId_fkey" FOREIGN KEY ("storyId") REFERENCES "Story"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ViewBlog" ADD CONSTRAINT "ViewBlog_blogId_fkey" FOREIGN KEY ("blogId") REFERENCES "Blog"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

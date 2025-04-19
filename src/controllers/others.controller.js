@@ -10,7 +10,6 @@ const getStats = async (req, res) => {
       therapistsCount,
       studentsCount,
       parentsCount,
-      activeDonationsCount,
       totalBlogViews,
       studentsMonthly,
       parentsMonthly,
@@ -18,9 +17,6 @@ const getStats = async (req, res) => {
       prisma.therapist.count(),
       prisma.student.count(),
       prisma.parent.count(),
-      prisma.donation.count({
-        where: { isDonationActive: true },
-      }),
       prisma.blog.aggregate({
         _sum: { viewCount: true },
       }),
@@ -50,7 +46,6 @@ const getStats = async (req, res) => {
     const statsCardData = {
       totalTherapists: therapistsCount,
       totalUsers: studentsCount + parentsCount,
-      activedonations: activeDonationsCount,
       totalBlogViews: totalBlogViews._sum.viewCount || 0,
     };
 
@@ -118,245 +113,6 @@ const getStats = async (req, res) => {
   }
 };
 
-const getActiveDonations = async (req, res) => {
-  try {
-    // Get active donations with their basic info
-    const activeDonations = await prisma.donation.findMany({
-      where: { isDonationActive: true },
-      select: {
-        title: true,
-        totalAmount: true,
-        receivedAmount: true,
-        timePeriod: true,
-        imgUrl: true,
-        organizedBy: true,
-        desc: true,
-        id: true,
-      },
-    });
-
-    // Calculate days left helper function
-    const calculateDaysLeft = (timePeriod) => {
-      const endDate = new Date(timePeriod);
-      const currentDate = new Date();
-      const timeDiff = endDate - currentDate;
-      const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-      return Math.max(0, daysLeft);
-    };
-
-    // Transform active donations data
-    const activeDonationsData = activeDonations.map((donation) => ({
-      ...donation,
-      progress: Number(
-        (((donation.receivedAmount || 0) / donation.totalAmount) * 100).toFixed(
-          2
-        )
-      ),
-      daysLeft: calculateDaysLeft(donation.timePeriod),
-    }));
-
-    // Get current date info for filtering
-    const now = new Date();
-    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(now.setHours(23, 59, 59, 999));
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-
-    // Get all donations for the current year
-    const yearlyDonations = await prisma.donationRecord.findMany({
-      where: {
-        createdAt: {
-          gte: startOfYear,
-        },
-      },
-      select: {
-        amount: true,
-        createdAt: true,
-      },
-    });
-
-    // Process donations into monthly data
-    const monthlyData = new Array(12).fill(0);
-    yearlyDonations.forEach((donation) => {
-      const month = donation.createdAt.getMonth();
-      monthlyData[month] += donation.amount;
-    });
-
-    // Transform into required chart format
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const chartData = monthlyData.map((amount, index) => ({
-      month: months[index],
-      Donation: amount,
-    }));
-
-    // Get stats using transaction for consistency
-    const stats = await prisma.$transaction(async (prisma) => {
-      // Calculate date ranges for current and previous periods
-      const today = new Date();
-      const startOfCurrentMonth = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        1
-      );
-      const startOfPreviousMonth = new Date(
-        today.getFullYear(),
-        today.getMonth() - 1,
-        1
-      );
-      const endOfPreviousMonth = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        0
-      );
-      const startOfYesterday = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() - 1,
-        0,
-        0,
-        0
-      );
-      const endOfYesterday = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() - 1,
-        23,
-        59,
-        59
-      );
-
-      // Total donations amount for the current and previous months
-      const currentMonthDonations = await prisma.donationRecord.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfCurrentMonth,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      });
-
-      const previousMonthDonations = await prisma.donationRecord.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfPreviousMonth,
-            lt: startOfCurrentMonth,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      });
-
-      // Today's and yesterday's donations
-      const todaysDonations = await prisma.donationRecord.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfDay,
-            lte: endOfDay,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      });
-
-      const yesterdaysDonations = await prisma.donationRecord.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfYesterday,
-            lte: endOfYesterday,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      });
-
-      // Count new donors for the current month
-      const newDonorsCount = await prisma.donationRecord.groupBy({
-        by: ["parentId", "therapistId"],
-        where: {
-          createdAt: {
-            gte: startOfCurrentMonth,
-          },
-        },
-        having: {
-          OR: [{ parentId: { not: null } }, { therapistId: { not: null } }],
-        },
-      });
-
-      // Calculate percentage changes
-      const currentMonthAmount = currentMonthDonations._sum.amount || 0;
-      const previousMonthAmount = previousMonthDonations._sum.amount || 0;
-      const todayAmount = todaysDonations._sum.amount || 0;
-      const yesterdayAmount = yesterdaysDonations._sum.amount || 0;
-
-      console.log("currentMonthAmount: >>", currentMonthAmount);
-      console.log("previousMonthAmount: >>", previousMonthAmount);
-      const monthlyChangePercentage =
-        previousMonthAmount > 0
-          ? Number(
-              (
-                ((currentMonthAmount - previousMonthAmount) /
-                  previousMonthAmount) *
-                100
-              ).toFixed(2)
-            )
-          : 0;
-
-      const dailyChangePercentage =
-        yesterdayAmount > 0
-          ? Number(
-              (
-                ((todayAmount - yesterdayAmount) / yesterdayAmount) *
-                100
-              ).toFixed(2)
-            )
-          : 0;
-
-      return {
-        totalDonations: {
-          amount: currentMonthAmount,
-          percentage: monthlyChangePercentage,
-        },
-        todaysDonations: {
-          amount: todayAmount,
-          percentage: dailyChangePercentage,
-        },
-        newDonors: {
-          amount: newDonorsCount.length,
-        },
-      };
-    });
-
-    return res.status(200).json({
-      data: { activeDonationsData, chartData, stats },
-      status: true,
-      message: "Active donations fetched successfully",
-    });
-  } catch (error) {
-    console.error("Error in getActiveDonations:", error);
-    return res.status(500).json({
-      error: error.message,
-      message: "Internal server error",
-      status: false,
-    });
-  }
-};
 
 // Get top rated therapists
 const getTopRatedTherapists = async (req, res) => {
@@ -464,5 +220,4 @@ export {
   getStats,
   getTopRatedTherapists,
   getBlogViewsStats,
-  getActiveDonations,
 };

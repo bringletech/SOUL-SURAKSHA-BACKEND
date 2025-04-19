@@ -74,7 +74,6 @@ model Parent {
   // Relations
   comments         Comment[]
   likes            Like[]
-  DonationRecord   DonationRecord[]
   viewBlog         ViewBlog[]
   reportsSubmitted Report[]
   favorites        favorites[]
@@ -84,19 +83,19 @@ model Parent {
 }
 
 model Therapist {
-  id                         String           @id @default(uuid())
+  id                         String         @id @default(uuid())
   userName                   String
-  phone                      String?          @unique
-  email                      String           @unique
+  phone                      String?        @unique
+  email                      String         @unique
   password                   String
   gender                     String?
-  dob                        String?          @default("")
+  dob                        String?        @default("")
   otp                        String?
-  isTherapistVerifiedByAdmin Boolean          @default(false)
-  isTherapistApprove         Boolean          @default(false)
-  isTherapistReject          Boolean          @default(false)
-  isOtpVerify                Boolean          @default(false)
-  isMailOtpVerify            Boolean          @default(false)
+  isTherapistVerifiedByAdmin Boolean        @default(false)
+  isTherapistApprove         Boolean        @default(false)
+  isTherapistReject          Boolean        @default(false)
+  isOtpVerify                Boolean        @default(false)
+  isMailOtpVerify            Boolean        @default(false)
   recoveryEmail              String?
   licenseNO                  String?
   therapistImage             String?
@@ -105,54 +104,17 @@ model Therapist {
   specialization             String?
   experience                 Float?
   bio                        String?
-  verified                   Boolean          @default(false)
-  ratings                    Float?           @default(0)
-  createdAt                  DateTime         @default(now())
+  verified                   Boolean        @default(false)
+  ratings                    Float?         @default(0)
+  createdAt                  DateTime       @default(now())
   Conversation               Conversation[]
   Review                     Review[]
   comments                   Comment[]
   likes                      Like[]
-  DonationRecord             DonationRecord[]
   viewBlog                   ViewBlog[]
   reportsSubmitted           Report[]
   favorites                  favorites[]
   hidenStories               hidenStories[]
-}
-
-model Donation {
-  id               String           @id @default(uuid())
-  title            String
-  organizedBy      String
-  timePeriod       DateTime
-  isDonationActive Boolean          @default(false)
-  desc             String
-  imgUrl           String?
-  receivedAmount   Float?           @default(0)
-  totalAmount      Float
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  donors           DonationRecord[]
-}
-
-model DonationRecord {
-  id                String   @id @default(uuid())
-  amount            Float
-  razorpayOrderId   String?  @unique
-  razorpayPaymentId String?  @unique
-  createdAt         DateTime @default(now())
-
-  // Relation to donation
-  donationId String
-  donation   Donation @relation(fields: [donationId], references: [id])
-
-  parentId String?
-  parent   Parent? @relation(fields: [parentId], references: [id])
-
-  therapistId String?
-  therapist   Therapist? @relation(fields: [therapistId], references: [id])
-
-  @@index([donationId])
-  @@index([therapistId])
 }
 
 model Story {
